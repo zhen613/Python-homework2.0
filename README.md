@@ -11,88 +11,62 @@
 2. 預警價值：可建立明確的警戒閾值（例如 DO<4.0 mg/L），提供高時效性的預警。<br>
 3. 應用擴充性：本程式架構可輕鬆切換至政府提供的即時水質 API 或村落自建的 IoT 數據源。<br>
 
-## 基礎 Python 概念說明
-1. **變數**：用來儲存數字或文字。例如，`area = 100` 表示將 100 儲存到變數 `area` 中。
-2. **運算子**：用於計算，如 `+`（加）、`-`（減）、`*`（乘）、`/`（除）、`**`（次方）。例如，`total = 5 * 10` 計算 5 乘 10 並儲存到 `total`。
-3. **print**：輸出結果到螢幕。例如，`print("Hello")` 會顯示 Hello。
-4. **input**：從使用者輸入資料。例如，`weight = input("輸入重量：")` 會等待輸入並儲存到 `weight`。注意：input 預設儲存為字串，若需數字計算，需用 `int()` 或 `float()` 轉換，如 `weight = float(input("輸入重量："))`。
-
-### 範例1：計算農田面積與作物產量（模擬土地種植階段）
-這個範例計算農田的面積（長乘寬），並估計作物產量（面積乘單位產量），強調土地資源在食農過程中的基礎角色。
-
-**執行步驟與食農連結**：
-- 輸入長度如 10、寬度如 5、單位產量如 0.5，輸出面積 50 平方公尺、總產量 25 公斤。
-- 這模擬田頭水的種植過程，提醒水資源（如灌溉）對產量的影響，教育永續使用土地。
-
 程式碼見 
 ```Python
-# 輸入農田長度和寬度（單位：公尺）
-length = float(input("輸入農田長度（公尺）："))
-width = float(input("輸入農田寬度（公尺）："))
+import pandas as pd
+import numpy as np
+data = {
+    '河川名稱': ['舊濁水溪'], 
+    '監測站名': ['福寶橋'], 
+    '採樣日期': ['106.07.11'], 
+    # 實際數值：DO 4.1, pH 7.6, NH3-N 2.31
+    '溶氧量(mg/L)數值': [4.1], 
+    'pH數值': [7.6], 
+    '氨氮(mg/L)數值': [2.31] 
+}
+df_simulated = pd.DataFrame(data)
 
-# 計算農田面積
-area = length * width
+# --- 養殖警戒參數設定 (可根據不同魚種調整，此處為常見淡水/鹹水魚標準) ---
+DO_CRITICAL_LOW = 4.0   # 溶氧量警戒值 (低於此值有缺氧風險)
+PH_CRITICAL_LOW = 6.5   # pH下限 (低於此值易酸中毒)
+PH_CRITICAL_HIGH = 8.5  # pH上限 (高於此值易鹼中毒)
+NH3N_CRITICAL_HIGH = 0.5 # 氨氮警戒值 (高於此值有毒性累積風險)
 
-# 輸入單位面積產量（例如每平方公尺稻米公斤數）
-unit_yield = float(input("輸入單位面積產量（公斤/平方公尺）："))
+def check_water_quality(df_record):
+    '''檢查水質參數是否超出養殖警戒值，並返回警報列表。'''
+    alerts = []
+    
+    # 提取參數數值 (取第一筆紀錄)
+    do_val = df_record['溶氧量(mg/L)數值'].iloc[0]
+    ph_val = df_record['pH數值'].iloc[0]
+    nh3n_val = df_record['氨氮(mg/L)數值'].iloc[0]
+    
+    # 1. 溶氧量 (DO) 檢查
+    if do_val < DO_CRITICAL_LOW:
+        alerts.append(f"🔴 溶氧量(DO)過低: {do_val:.2f} mg/L (警戒線: < {DO_CRITICAL_LOW})")
+        
+    # 2. pH 檢查
+    if ph_val < PH_CRITICAL_LOW or ph_val > PH_CRITICAL_HIGH:
+        alerts.append(f"🟡 pH值異常: {ph_val:.1f} (警戒線: {PH_CRITICAL_LOW}~{PH_CRITICAL_HIGH})")
+            
+    # 3. 氨氮 (NH3-N) 檢查
+    if nh3n_val > NH3N_CRITICAL_HIGH:
+        alerts.append(f"🚨 氨氮(NH3-N)濃度過高: {nh3n_val:.2f} mg/L (警戒線: > {NH3N_CRITICAL_HIGH})")
+        
+    return alerts
 
-# 計算總產量
-total_yield = area * unit_yield
+alerts = check_water_quality(df_simulated)
 
-# 輸出結果
-print("農田面積：", area, "平方公尺")
-print("總作物產量：", total_yield, "公斤")
+print("--- 智慧養殖水質監測結果 ---")
+print(f"**監測站點**: {df_simulated['監測站名'].iloc[0]} (模擬水井村監測點)")
+print(f"**採樣日期**: {df_simulated['採樣日期'].iloc[0]}")
+print("=============================")
 
-```
-### 範例2：計算作物運輸成本（模擬從農田到市場階段）
-這個範例計算作物重量與運輸距離的總成本（重量乘距離乘單位運費），連結食農中運輸的碳足跡與經濟考量。
-
-**執行步驟與食農連結**：
-- 輸入重量如 100、距離如 20，輸出總成本 1000 元。
-- 這反映從土地到餐桌的運輸環節，教育減少距離（如在地消費）可降低成本與環境影響，體現田頭水的在地食農精神。
-
-程式碼見
-```Python
-# 輸入作物總重量（公斤）
-weight = float(input("輸入作物總重量（公斤）："))
-
-# 輸入運輸距離（公里）
-distance = float(input("輸入運輸距離（公里）："))
-
-# 設定單位運費（每公斤每公里）
-unit_cost = 0.5  # 假設每公斤每公里0.5元
-
-# 計算總運輸成本
-total_cost = weight * distance * unit_cost
-
-# 輸出結果
-print("作物重量：", weight, "公斤")
-print("運輸距離：", distance, "公里")
-print("總運輸成本：", total_cost, "元")
-```
-
-### 範例3：計算食物單位轉換與營養價值（模擬餐桌消費階段）
-這個範例將作物重量從公斤轉換為克，並計算簡單營養價值（重量乘單位熱量），強調食物從生產到食用的轉化。
-
-**執行步驟與食農連結**：
-- 輸入重量如 2、單位熱量如 1.5，輸出重量 2000 克、總熱量 3000 卡路里。
-- 這連結餐桌階段，教育消費者了解食物來源與營養，促進對田頭水農作物的珍惜，避免浪費。
-
-程式碼見
-```Python
-# 輸入作物重量（公斤）
-kg_weight = float(input("輸入作物重量（公斤）："))
-
-# 轉換為克（1公斤 = 1000克）
-g_weight = kg_weight * 1000
-
-# 輸入單位熱量（每克卡路里）
-unit_calorie = float(input("輸入單位熱量（卡路里/克）："))
-
-# 計算總熱量
-total_calorie = g_weight * unit_calorie
-
-# 輸出結果
-print("作物重量（克）：", g_weight, "克")
-print("總熱量：", total_calorie, "卡路里")
+if alerts:
+    print(f" **發現 {len(alerts)} 項警戒！請立即處理！** ")
+    for alert in alerts:
+        print(f"* {alert}")
+    print("\n👉 **漁民建議行動**: 立即檢查曝氣設備、調整pH值，並考慮部分換水以降低氨氮濃度。")
+else:
+    print("✅ 水質參數正常，請保持監測。")
 ```
